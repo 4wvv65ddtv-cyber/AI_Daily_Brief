@@ -17,6 +17,9 @@ jobs:
   send-brief:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Node.js 20 弃用提示可忽略；与 exit code 1 无关
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
