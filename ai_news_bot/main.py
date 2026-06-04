@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -166,7 +167,15 @@ def main() -> int:
         len(brief.trends),
         len(brief.tools),
     )
-    _print_console_report(brief)
+    if not os.getenv("GITHUB_ACTIONS"):
+        _print_console_report(brief)
+    else:
+        logger.info(
+            "Brief ready (CI): top=%s, trends=%s, tools=%s",
+            len(brief.top_hot),
+            len(brief.trends),
+            len(brief.tools),
+        )
 
     # Phase 5: Persist outputs
     json_path = Path(args.save_json) if args.save_json else None

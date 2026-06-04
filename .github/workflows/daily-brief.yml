@@ -45,6 +45,7 @@ jobs:
       - name: Run daily brief and push to Feishu
         env:
           TZ: Asia/Shanghai
+          PYTHONIOENCODING: utf-8
           GITHUB_ACTIONS: "true"
           LLM_PROVIDER: deepseek
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
