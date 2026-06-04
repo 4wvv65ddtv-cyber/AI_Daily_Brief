@@ -126,6 +126,11 @@ def main() -> int:
         if report.errors:
             for src, err in report.errors.items():
                 logger.error("  %s: %s", src, err)
+        print(
+            "[main] FATAL: crawl returned 0 items. "
+            "On GitHub Actions, Chinese RSS/Google News are often blocked — "
+            "ensure secrets FEISHU_WEBHOOK_URL / OPENAI_API_KEY are set, then re-run."
+        )
         return 1
 
     # Phase 2: Classify

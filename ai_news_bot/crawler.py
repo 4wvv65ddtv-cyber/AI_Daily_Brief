@@ -22,6 +22,7 @@ from ai_news_bot.config import (
     REQUEST_TIMEOUT,
     RSS_FEEDS_ALL,
     USER_AGENT,
+    get_rss_feeds,
 )
 
 
@@ -191,9 +192,11 @@ def crawl_all_feeds() -> List[NewsItem]:
 def crawl_with_report() -> CrawlReport:
     """Fetch all feeds and return items plus per-source stats."""
     report = CrawlReport()
-    tasks = [(f.name, f.url) for f in RSS_FEEDS_ALL]
+    feeds = get_rss_feeds()
+    tasks = [(f.name, f.url) for f in feeds]
+    mode = "CI" if len(feeds) < len(RSS_FEEDS_ALL) else "full"
 
-    print(f"[crawler] Fetching {len(tasks)} sources (workers={CRAWL_MAX_WORKERS})...")
+    print(f"[crawler] Fetching {len(tasks)} sources ({mode}, workers={CRAWL_MAX_WORKERS})...")
     with ThreadPoolExecutor(max_workers=CRAWL_MAX_WORKERS) as pool:
         futures = {
             pool.submit(_crawl_single_source, name, url): name

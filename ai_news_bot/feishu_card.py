@@ -222,7 +222,7 @@ def _feishu_push_mode() -> str:
 
 
 def _feishu_webhook_url() -> str:
-    return os.getenv("FEISHU_WEBHOOK_URL", "").strip()
+    return os.getenv("FEISHU_WEBHOOK_URL", "").strip().strip('"').strip("'")
 
 
 def _configured_for_push() -> bool:

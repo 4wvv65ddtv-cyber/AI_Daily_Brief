@@ -32,9 +32,20 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
+      - name: Preflight (secrets & env)
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+        run: |
+          echo "OPENAI_API_KEY set: $(test -n \"$OPENAI_API_KEY\" && echo yes || echo NO)"
+          echo "FEISHU_WEBHOOK_URL set: $(test -n \"$FEISHU_WEBHOOK_URL\" && echo yes || echo NO)"
+          test -n "$FEISHU_WEBHOOK_URL" || (echo "::error::Missing secret FEISHU_WEBHOOK_URL" && exit 1)
+          test -n "$OPENAI_API_KEY" || echo "::warning::OPENAI_API_KEY empty — will use dry-run fallback"
+
       - name: Run daily brief and push to Feishu
         env:
           TZ: Asia/Shanghai
+          GITHUB_ACTIONS: "true"
           LLM_PROVIDER: deepseek
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: deepseek-chat

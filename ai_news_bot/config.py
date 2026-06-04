@@ -52,6 +52,18 @@ RSS_FEEDS_GLOBAL: List[RSSSource] = [
 
 RSS_FEEDS_ALL: List[RSSSource] = RSS_FEEDS_CHINA + RSS_FEEDS_GLOBAL
 
+# GitHub Actions 机房常无法访问国内源 / Google News，仅用海外稳定源
+RSS_FEEDS_CI: List[RSSSource] = RSS_FEEDS_GLOBAL
+
+
+def get_rss_feeds() -> List[RSSSource]:
+    """Pick feed list: full list locally, CI-safe list on GitHub Actions."""
+    if os.getenv("GITHUB_ACTIONS", "").lower() == "true":
+        return list(RSS_FEEDS_CI)
+    if os.getenv("RSS_MODE", "").lower() == "ci":
+        return list(RSS_FEEDS_CI)
+    return list(RSS_FEEDS_ALL)
+
 # Fallback URLs when Hacker News primary feed fails
 HACKER_NEWS_FALLBACK_URLS: List[str] = [
     "https://hnrss.org/newest",
