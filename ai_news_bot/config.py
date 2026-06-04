@@ -52,8 +52,20 @@ RSS_FEEDS_GLOBAL: List[RSSSource] = [
 
 RSS_FEEDS_ALL: List[RSSSource] = RSS_FEEDS_CHINA + RSS_FEEDS_GLOBAL
 
-# GitHub Actions 机房常无法访问国内源 / Google News，仅用海外稳定源
-RSS_FEEDS_CI: List[RSSSource] = RSS_FEEDS_GLOBAL
+# GitHub Actions：避开 Google News（机房常 403/空），用稳定源 + 备用
+RSS_FEEDS_CI: List[RSSSource] = [
+    RSSSource(name="TechCrunch AI", url="https://techcrunch.com/category/artificial-intelligence/feed/"),
+    RSSSource(name="Hacker News", url="https://hnrss.org/newest?q=AI+OR+LLM+OR+GPT+OR+machine+learning"),
+    RSSSource(name="arXiv AI", url="http://export.arxiv.org/rss/cs.AI"),
+    RSSSource(
+        name="OpenAI Blog",
+        url="https://openai.com/blog/rss.xml",
+    ),
+    RSSSource(
+        name="Reddit ML",
+        url="https://www.reddit.com/r/MachineLearning/.rss",
+    ),
+]
 
 
 def get_rss_feeds() -> List[RSSSource]:

@@ -29,7 +29,9 @@ if str(PROJECT_ROOT) not in sys.path:
 try:
     from dotenv import load_dotenv
 
-    load_dotenv(ENV_FILE, override=True)
+    # CI 只用 GitHub Secrets，避免误加载或覆盖环境变量
+    if not os.getenv("GITHUB_ACTIONS"):
+        load_dotenv(ENV_FILE, override=True)
 except ImportError:
     pass
 
@@ -122,6 +124,10 @@ def main() -> int:
 
     # Phase 1: Crawl
     report = crawl_with_report()
+    if report.total == 0 and os.getenv("GITHUB_ACTIONS"):
+        logger.warning("CI crawl empty, retrying once with extended timeout...")
+        os.environ["CRAWL_REQUEST_RETRIES"] = "4"
+        report = crawl_with_report()
     if report.total == 0:
         logger.error("No news fetched from any source")
         if report.errors:
@@ -220,4 +226,13 @@ def _mark_sent_today() -> None:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except SystemExit:
+        raise
+    except Exception as exc:
+        import traceback
+
+        traceback.print_exc()
+        print(f"[main] FATAL uncaught exception: {exc}")
+        raise SystemExit(1) from exc

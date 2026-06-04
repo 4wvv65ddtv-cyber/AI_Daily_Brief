@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -109,19 +110,26 @@ def _extract_published(entry: feedparser.FeedParserDict) -> str:
 
 
 def _http_get(url: str) -> bytes:
+    ua = USER_AGENT
+    if os.getenv("GITHUB_ACTIONS"):
+        ua = (
+            "Mozilla/5.0 (compatible; AI-Daily-Brief/1.0; "
+            "+https://github.com/4wvv65ddtv-cyber/AI_Daily_Brief)"
+        )
     headers = {
-        "User-Agent": USER_AGENT,
+        "User-Agent": ua,
         "Accept": "application/rss+xml, application/xml, text/xml, */*",
     }
+    retries = int(os.getenv("CRAWL_REQUEST_RETRIES", str(CRAWL_REQUEST_RETRIES)))
     last_err: Optional[Exception] = None
-    for attempt in range(CRAWL_REQUEST_RETRIES + 1):
+    for attempt in range(retries + 1):
         try:
             resp = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
             return resp.content
         except Exception as e:
             last_err = e
-            if attempt < CRAWL_REQUEST_RETRIES:
+            if attempt < retries:
                 time.sleep(1.5 * (attempt + 1))
     raise last_err  # type: ignore[misc]
 

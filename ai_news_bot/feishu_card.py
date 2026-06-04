@@ -208,12 +208,21 @@ def _send_via_webhook(payload: Dict[str, Any], url: str) -> bool:
 
     if resp.status_code == 200:
         code = body.get("code", body.get("StatusCode"))
+        try:
+            code_ok = int(code) == 0
+        except (TypeError, ValueError):
+            code_ok = code in (0, "0", None) and "error" not in str(body).lower()
         status_msg = str(body.get("msg", body.get("StatusMessage", ""))).lower()
-        if code == 0 or status_msg == "success":
+        if code_ok or status_msg == "success":
             print("[feishu] Webhook sent successfully")
             return True
+        print(f"[feishu] Feishu API rejected card: code={code!r} msg={status_msg!r}")
 
-    print(f"[feishu] Webhook send failed: {resp.status_code} {body}")
+    print(f"[feishu] Webhook send failed: HTTP {resp.status_code}")
+    if isinstance(body, dict):
+        print(f"[feishu] Response: {body.get('msg') or body.get('StatusMessage') or body}")
+    else:
+        print(f"[feishu] Response: {str(body)[:500]}")
     if resp.status_code == 404:
         print("[feishu] Hint: Webhook URL invalid or bot removed — reset in Feishu group")
     return False
@@ -224,7 +233,10 @@ def _feishu_push_mode() -> str:
 
 
 def _feishu_webhook_url() -> str:
-    return os.getenv("FEISHU_WEBHOOK_URL", "").strip().strip('"').strip("'")
+    raw = os.getenv("FEISHU_WEBHOOK_URL", "").strip()
+    if raw.upper().startswith("FEISHU_WEBHOOK_URL="):
+        raw = raw.split("=", 1)[1].strip()
+    return raw.strip('"').strip("'").strip()
 
 
 def _configured_for_push() -> bool:

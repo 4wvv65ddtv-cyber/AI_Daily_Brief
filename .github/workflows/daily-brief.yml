@@ -3,7 +3,6 @@
 name: AI Daily Brief
 
 on:
-  # 推送到 main 时也会跑一次（便于首次在 Actions 页看到记录）
   push:
     branches: [main]
   schedule:
@@ -17,9 +16,18 @@ jobs:
   send-brief:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Node.js 20 弃用提示可忽略；与 exit code 1 无关
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      TZ: Asia/Shanghai
+      PYTHONIOENCODING: utf-8
+      PYTHONUNBUFFERED: "1"
+      GITHUB_ACTIONS: "true"
+      LLM_PROVIDER: deepseek
+      OPENAI_MODEL: deepseek-chat
+      OPENAI_BASE_URL: https://api.deepseek.com
+      FEISHU_PUSH_MODE: webhook
+      MAX_TOTAL_ITEMS: "60"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,33 +43,38 @@ jobs:
           pip install -r requirements.txt
           pip install -e .
 
-      - name: Preflight (secrets & env)
+      - name: Preflight (normalize secrets)
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
         run: |
-          echo "OPENAI_API_KEY set: $(test -n \"$OPENAI_API_KEY\" && echo yes || echo NO)"
-          echo "FEISHU_WEBHOOK_URL set: $(test -n \"$FEISHU_WEBHOOK_URL\" && echo yes || echo NO)"
-          test -n "$FEISHU_WEBHOOK_URL" || (echo "::error::Missing secret FEISHU_WEBHOOK_URL" && exit 1)
-          test -n "$OPENAI_API_KEY" || echo "::warning::OPENAI_API_KEY empty — will use dry-run fallback"
+          set -e
+          trim() { echo -n "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'\''//;s/'\''$//'; }
+          KEY="$(trim "$OPENAI_API_KEY")"
+          WH="$(trim "$FEISHU_WEBHOOK_URL")"
+          WH="${WH#FEISHU_WEBHOOK_URL=}"
+          WH="$(trim "$WH")"
+          echo "OPENAI_API_KEY set: $(test -n "$KEY" && echo yes || echo NO)"
+          echo "FEISHU_WEBHOOK_URL set: $(test -n "$WH" && echo yes || echo NO)"
+          test -n "$WH" || (echo "::error::Missing FEISHU_WEBHOOK_URL secret" && exit 1)
+          case "$WH" in
+            https://open.feishu.cn/*|https://open.larksuite.com/*) ;;
+            *) echo "::error::FEISHU_WEBHOOK_URL must be a Feishu bot https URL" && exit 1 ;;
+          esac
+          echo "::add-mask::$WH"
+          echo "OPENAI_API_KEY=$KEY" >> "$GITHUB_ENV"
+          echo "FEISHU_WEBHOOK_URL=$WH" >> "$GITHUB_ENV"
+          test -n "$KEY" || echo "::warning::OPENAI_API_KEY empty — will use RSS dry-run fallback"
 
       - name: Run daily brief and push to Feishu
-        env:
-          TZ: Asia/Shanghai
-          PYTHONIOENCODING: utf-8
-          GITHUB_ACTIONS: "true"
-          LLM_PROVIDER: deepseek
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: deepseek-chat
-          OPENAI_BASE_URL: https://api.deepseek.com
-          FEISHU_PUSH_MODE: webhook
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          MAX_TOTAL_ITEMS: "60"
         run: |
-          python -m ai_news_bot.main --log-file logs/brief.log || EC=$?
+          python -u -m ai_news_bot.main --log-file logs/brief.log || EC=$?
+          echo ""
           echo "========== logs/brief.log =========="
           cat logs/brief.log 2>/dev/null || echo "(no brief.log)"
-          echo "========== end =========="
+          echo "========== crawler/errors summary =========="
+          grep -E '\[main\]|\[feishu\]|\[crawler\]|FATAL|EXIT|Error|error' logs/brief.log 2>/dev/null || true
+          echo "========== end (exit=${EC:-0}) =========="
           exit ${EC:-0}
 
       - name: Upload logs on failure
