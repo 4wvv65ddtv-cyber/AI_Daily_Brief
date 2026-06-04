@@ -214,6 +214,8 @@ def _send_via_webhook(payload: Dict[str, Any], url: str) -> bool:
             return True
 
     print(f"[feishu] Webhook send failed: {resp.status_code} {body}")
+    if resp.status_code == 404:
+        print("[feishu] Hint: Webhook URL invalid or bot removed — reset in Feishu group")
     return False
 
 

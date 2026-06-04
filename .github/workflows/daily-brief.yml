@@ -53,7 +53,12 @@ jobs:
           FEISHU_PUSH_MODE: webhook
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           MAX_TOTAL_ITEMS: "60"
-        run: python -m ai_news_bot.main --log-file logs/brief.log
+        run: |
+          python -m ai_news_bot.main --log-file logs/brief.log || EC=$?
+          echo "========== logs/brief.log =========="
+          cat logs/brief.log 2>/dev/null || echo "(no brief.log)"
+          echo "========== end =========="
+          exit ${EC:-0}
 
       - name: Upload logs on failure
         if: failure()

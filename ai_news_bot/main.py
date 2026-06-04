@@ -131,6 +131,7 @@ def main() -> int:
             "On GitHub Actions, Chinese RSS/Google News are often blocked — "
             "ensure secrets FEISHU_WEBHOOK_URL / OPENAI_API_KEY are set, then re-run."
         )
+        print("[main] EXIT 1: RSS crawl returned 0 items")
         return 1
 
     # Phase 2: Classify
@@ -188,7 +189,8 @@ def main() -> int:
         send_feishu_card(brief, dry_run=True)
     else:
         if not send_feishu_card(brief):
-            logger.error("Feishu push failed")
+            logger.error("Feishu push failed — check FEISHU_WEBHOOK_URL secret")
+            print("[main] EXIT 2: Feishu webhook send failed (see [feishu] lines above)")
             return 2
         _mark_sent_today()
 
