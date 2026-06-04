@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.ai.daily-brief.login</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/yanxin/Desktop/AI_Daily_Brief/scripts/run_daily.sh</string>
+    <string>login</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/yanxin/Desktop/AI_Daily_Brief</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>TZ</key>
+    <string>Asia/Shanghai</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/yanxin/Desktop/AI_Daily_Brief/logs/launchd-login.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/yanxin/Desktop/AI_Daily_Brief/logs/launchd-login.err.log</string>
+</dict>
+</plist>

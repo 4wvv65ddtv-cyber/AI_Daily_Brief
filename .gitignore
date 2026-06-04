@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual env
+venv/
+.venv/
+
+# Secrets & local config
+.env
+
+# Runtime output
+logs/*.log
+logs/*.stamp
+output/*.json
+!logs/.gitkeep
+!output/.gitkeep
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/

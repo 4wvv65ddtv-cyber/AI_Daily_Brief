@@ -1,0 +1,50 @@
+# 云端定时推送：无需 Mac 开机/登录
+# 北京时间 工作日 08:00 = UTC 00:00（Mon–Fri）
+name: AI Daily Brief
+
+on:
+  schedule:
+    - cron: "0 0 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Run daily brief and push to Feishu
+        env:
+          TZ: Asia/Shanghai
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'deepseek-chat' }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL || 'https://api.deepseek.com' }}
+          FEISHU_PUSH_MODE: webhook
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          MAX_TOTAL_ITEMS: "60"
+        run: python -m ai_news_bot.main --log-file logs/brief.log
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brief-logs-${{ github.run_id }}
+          path: logs/
+          if-no-files-found: ignore
