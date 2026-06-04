@@ -3,6 +3,9 @@
 name: AI Daily Brief
 
 on:
+  # 推送到 main 时也会跑一次（便于首次在 Actions 页看到记录）
+  push:
+    branches: [main]
   schedule:
     - cron: "0 0 * * 1-5"
   workflow_dispatch:
@@ -32,10 +35,10 @@ jobs:
       - name: Run daily brief and push to Feishu
         env:
           TZ: Asia/Shanghai
-          LLM_PROVIDER: ${{ vars.LLM_PROVIDER || 'deepseek' }}
+          LLM_PROVIDER: deepseek
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'deepseek-chat' }}
-          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL || 'https://api.deepseek.com' }}
+          OPENAI_MODEL: deepseek-chat
+          OPENAI_BASE_URL: https://api.deepseek.com
           FEISHU_PUSH_MODE: webhook
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           MAX_TOTAL_ITEMS: "60"
