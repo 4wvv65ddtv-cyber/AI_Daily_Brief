@@ -1,16 +1,19 @@
 # 云端定时推送：无需 Mac 开机/登录
-# 北京时间 工作日 08:00 = UTC 00:00（Mon–Fri）
+# 北京时间 工作日 08:00 = UTC 00:00；09:00 备用 = UTC 01:00
 name: AI Daily Brief
 
 on:
-  push:
-    branches: [main]
   schedule:
-    - cron: "0 0 * * 1-5"
+    - cron: "0 0 * * 1-5"   # 08:00 北京时间
+    - cron: "0 1 * * 1-5"   # 09:00 北京时间（8点未触发时的备用）
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: daily-brief-${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   send-brief:
@@ -28,21 +31,40 @@ jobs:
       MAX_TOTAL_ITEMS: "60"
 
     steps:
+      - name: Beijing date
+        id: bjdate
+        run: echo "day=$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if already pushed today
+        uses: actions/cache@v4
+        id: sent-cache
+        with:
+          path: .cache/sent-${{ steps.bjdate.outputs.day }}
+          key: brief-sent-${{ steps.bjdate.outputs.day }}
+
+      - name: Already sent today
+        if: steps.sent-cache.outputs.cache-hit == 'true'
+        run: echo "Brief already sent today (${{ steps.bjdate.outputs.day }}), skipping."
+
       - name: Checkout
+        if: steps.sent-cache.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
 
       - name: Setup Python
+        if: steps.sent-cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install dependencies
+        if: steps.sent-cache.outputs.cache-hit != 'true'
         run: |
           pip install -r requirements.txt
           pip install -e .
 
       - name: Preflight (normalize secrets)
+        if: steps.sent-cache.outputs.cache-hit != 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
@@ -66,6 +88,7 @@ jobs:
           test -n "$KEY" || echo "::warning::OPENAI_API_KEY empty — will use RSS dry-run fallback"
 
       - name: Run daily brief and push to Feishu
+        if: steps.sent-cache.outputs.cache-hit != 'true'
         run: |
           python -u -m ai_news_bot.main --log-file logs/brief.log || EC=$?
           echo ""
@@ -75,6 +98,10 @@ jobs:
           grep -E '\[main\]|\[feishu\]|\[crawler\]|FATAL|EXIT|Error|error' logs/brief.log 2>/dev/null || true
           echo "========== end (exit=${EC:-0}) =========="
           exit ${EC:-0}
+
+      - name: Mark sent today
+        if: success() && steps.sent-cache.outputs.cache-hit != 'true'
+        run: mkdir -p ".cache/sent-${{ steps.bjdate.outputs.day }}" && touch ".cache/sent-${{ steps.bjdate.outputs.day }}/ok"
 
       - name: Upload logs on failure
         if: failure()
