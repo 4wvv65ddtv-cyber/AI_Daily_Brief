@@ -43,7 +43,7 @@ git push -u origin main
 
 仓库已包含 [`.github/workflows/daily-brief.yml`](../.github/workflows/daily-brief.yml)：
 
-- **北京时间 周一至周五 08:00** 自动运行
+- **北京时间 每天 08:00** 自动运行（含周六日）；8:15 / 8:30 / 9:00 备用，**一天只推一条**
 - 也可在 GitHub **Actions** 页点击 **Run workflow** 手动试跑
 
 ### 4. 停用本机定时（避免重复推送）
@@ -71,7 +71,7 @@ crontab -r 2>/dev/null || true
 ```bash
 # 安装后 crontab -e
 TZ=Asia/Shanghai
-0 8 * * 1-5 cd /path/to/AI_Daily_Brief && ./venv/bin/python -m ai_news_bot.main --log-file logs/brief.log
+0 8 * * * cd /path/to/AI_Daily_Brief && ./venv/bin/python -m ai_news_bot.main --log-file logs/brief.log
 ```
 
 在服务器上配置 `.env` 或系统环境变量即可，**不依赖你的 Mac**。

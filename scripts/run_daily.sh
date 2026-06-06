@@ -7,18 +7,12 @@ export TZ=Asia/Shanghai
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 MODE="${1:-scheduled}"  # scheduled | login
-DOW="$(date +%u)"       # 1=Mon … 7=Sun
 HOUR="$(date +%H)"
 DAY="$(date +%Y%m%d)"
 STAMP="logs/sent-${DAY}.stamp"
 LOG="logs/cron.log"
 
 mkdir -p logs
-
-# Weekdays only (Mon–Fri)
-if [ "$DOW" -gt 5 ]; then
-  exit 0
-fi
 
 # Already sent today
 if [ -f "$STAMP" ]; then

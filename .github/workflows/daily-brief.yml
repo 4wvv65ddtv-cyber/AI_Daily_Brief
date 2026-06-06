@@ -1,12 +1,16 @@
 # 云端定时推送：无需 Mac 开机/登录
-# 北京时间 工作日 08:00 = UTC 00:00；09:00 备用 = UTC 01:00
+# 北京时间 每天 08:00 = UTC 00:00（含周末）；多次尝试 + 防重复，一天只推一条
 name: AI Daily Brief
 
 on:
   schedule:
-    - cron: "0 0 * * 1-5"   # 08:00 北京时间
-    - cron: "0 1 * * 1-5"   # 09:00 北京时间（8点未触发时的备用）
+    - cron: "0 0 * * *"    # 08:00 北京时间
+    - cron: "15 0 * * *"   # 08:15 备用
+    - cron: "30 0 * * *"   # 08:30 备用
+    - cron: "0 1 * * *"    # 09:00 备用
   workflow_dispatch:
+  repository_dispatch:
+    types: [daily-brief]
 
 permissions:
   contents: read

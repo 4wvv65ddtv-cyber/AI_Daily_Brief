@@ -16,5 +16,5 @@ launchctl bootstrap "gui/$(id -u)" "$AGENTS/com.ai.daily-brief.login.plist"
 echo "LaunchAgents installed:"
 launchctl print "gui/$(id -u)/com.ai.daily-brief" 2>/dev/null | head -5 || launchctl list | grep daily-brief
 echo ""
-echo "  • 08:00 weekdays (if Mac is awake)"
-echo "  • On login after 08:00: catch-up if not sent today (sleep-safe)"
+echo "  • 每天 08:00（Mac 醒着时自动发）"
+echo "  • 登录补跑：8 点后开机且今天还没发过 → 自动补发"
