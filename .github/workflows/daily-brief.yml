@@ -1,26 +1,17 @@
-# 云端定时推送：无需 Mac 开机/登录
-# 使用 Asia/Shanghai 时区；8:00–9:00 多次尝试，一天只推一条
+# 云端执行简报并推飞书
+# 准时触发请用 cron-job.org → workflow_dispatch（见 docs/CLOUD_SCHEDULE.md）
+# 下方 schedule 仅作兜底，GitHub 可能延迟数小时，不能指望 8:00 准时
 name: AI Daily Brief
 
 on:
-  schedule:
-    - cron: "0 8 * * *"
-      timezone: Asia/Shanghai
-    - cron: "10 8 * * *"
-      timezone: Asia/Shanghai
-    - cron: "20 8 * * *"
-      timezone: Asia/Shanghai
-    - cron: "30 8 * * *"
-      timezone: Asia/Shanghai
-    - cron: "40 8 * * *"
-      timezone: Asia/Shanghai
-    - cron: "50 8 * * *"
-      timezone: Asia/Shanghai
-    - cron: "0 9 * * *"
-      timezone: Asia/Shanghai
   workflow_dispatch:
   repository_dispatch:
     types: [daily-brief]
+  schedule:
+    - cron: "0 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "0 9 * * *"
+      timezone: Asia/Shanghai
 
 permissions:
   contents: read

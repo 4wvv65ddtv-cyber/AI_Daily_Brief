@@ -1,88 +1,120 @@
 # 云端定时推送（无需 Mac 开机 / 登录）
 
-本机 `cron` / LaunchAgent **依赖电脑在 8:00 已唤醒且通常需已登录**，合盖休眠或 8 点后才开机都会漏发。
+## 为什么 GitHub 内置 `schedule` 不靠谱？
 
-若需要 **每天固定时间自动发飞书、不依赖你开电脑**，请用 **GitHub Actions**（或其它云服务器）跑任务。
+GitHub Actions 的 `on.schedule` **不保证准时**：
+
+- 高负载时可能 **延迟数小时**（本项目曾出现 8:00 应跑、实际 17:30 才跑）
+- 有时 **早上窗口直接跳过**
+- 这是平台机制，**换 cron 表达式、加时区都无法根治**
+
+因此：**不要指望仓库里的 `schedule:` 让你在 8:00 收到飞书。**
 
 ---
 
-## 方案 A：GitHub Actions（推荐，免费额度内够用）
+## 推荐方案：外部准时触发 + GitHub Actions 执行
 
-### 1. 把项目推到 GitHub
+思路：准时服务在 **8:00** 调用 GitHub API → 触发 `workflow_dispatch` → 仓库里现有 workflow 跑简报并推飞书。
+
+| 环节 | 用什么 | 是否准时 |
+|------|--------|----------|
+| 到点「叫醒」 | [cron-job.org](https://console.cron-job.org/)（免费） | ✅ 通常 ±1 分钟 |
+| 真正跑任务 | GitHub Actions `daily-brief.yml` | ✅ 触发后 1–3 分钟完成 |
+| 内置 `schedule` | 保留作兜底 | ❌ 仅备用 |
+
+### 一键配置向导
 
 ```bash
 cd /Users/yanxin/Desktop/AI_Daily_Brief
-git init   # 若尚未初始化
-git add .
-git commit -m "Add cloud scheduled brief"
-# 在 GitHub 新建仓库后：
-git remote add origin https://github.com/4wvv65ddtv-cyber/AI_Daily_Brief.git
-git push -u origin main
+
+# 1. 在 .env 写入 GITHUB_PAT（见下方「创建 Token」）
+# 2. 运行向导（会验证 Token 并打印 cron-job.org 填法）
+bash scripts/setup_external_cron.sh
 ```
 
-确保 **不要** 把 `.env` 提交上去（已在 `.gitignore`）。
+### 创建 GitHub Token（只需一次）
 
-### 2. 配置 Secrets
-
-仓库 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**：
-
-| Secret 名称 | 内容 |
-|-------------|------|
-| `OPENAI_API_KEY` | DeepSeek / OpenAI 的 API Key |
-| `FEISHU_WEBHOOK_URL` | 飞书小群机器人 Webhook 完整 URL |
-
-可选 **Variables**（非敏感，不设则用默认）：
-
-| Variable | 示例 |
-|----------|------|
-| `LLM_PROVIDER` | `deepseek` |
-| `OPENAI_MODEL` | `deepseek-chat` |
-| `OPENAI_BASE_URL` | `https://api.deepseek.com` |
-
-### 3. 启用定时
-
-仓库已包含 [`.github/workflows/daily-brief.yml`](../.github/workflows/daily-brief.yml)：
-
-- **北京时间 每天 08:00–09:00** 自动运行（含周六日，`timezone: Asia/Shanghai`），**一天只推一条**
-- **注意**：GitHub 内置 `schedule` 可能延迟数小时，不能指望 8 点准时。本机 `install_crontab.sh` 或外部定时调 `trigger_github_workflow.sh` 更可靠
-- 也可在 GitHub **Actions** 页点击 **Run workflow** 手动试跑
-
-### 4. 停用本机定时（避免重复推送）
-
-若已安装本机 LaunchAgent / crontab，云端生效后建议关掉本机：
+1. 打开 https://github.com/settings/tokens?type=beta  
+2. **Generate new token**  
+3. **Repository access** → 只选 `AI_Daily_Brief`  
+4. **Permissions** → `Actions: Read and write`，`Metadata: Read`  
+5. 复制 token，写入 `.env`：
 
 ```bash
-launchctl bootout gui/$(id -u)/com.ai.daily-brief 2>/dev/null || true
-launchctl bootout gui/$(id -u)/com.ai.daily-brief.login 2>/dev/null || true
-crontab -r 2>/dev/null || true
+GITHUB_PAT=github_pat_xxxxxxxx
 ```
 
-### 5. 说明
+### cron-job.org 关键参数
 
-- GitHub 定时可能有 **几分钟延迟**，属平台正常行为。
-- 私有仓库也可使用 Actions（有每月分钟数限额，本任务每次约 1–3 分钟）。
-- 失败时可在 Actions 运行详情里下载 `brief-logs-*`  artifact 排查。
+| 字段 | 值 |
+|------|-----|
+| URL | `https://api.github.com/repos/4wvv65ddtv-cyber/AI_Daily_Brief/actions/workflows/daily-brief.yml/dispatches` |
+| Method | `POST` |
+| Schedule | 每天 `08:00`，时区 `Asia/Shanghai` |
+| Header | `Authorization: Bearer <GITHUB_PAT>` |
+| Header | `Accept: application/vnd.github+json` |
+| Header | `Content-Type: application/json` |
+| Body | `{"ref":"main"}` |
+
+也可手动测试触发：
+
+```bash
+GITHUB_PAT=github_pat_xxx ./scripts/trigger_github_workflow.sh
+```
 
 ---
 
-## 方案 B：云服务器 / NAS（可选）
+## 方案 B：本机 crontab（Mac 8 点在线时）
 
-任意常开 Linux 机器上：
+不依赖 GitHub 准时，但 **需要 Mac 8 点醒着且已登录**：
 
 ```bash
-# 安装后 crontab -e
+bash scripts/install_crontab.sh   # 每天 8:00 + 8:15
+```
+
+项目在桌面时，若 launchd 报 `Operation not permitted`，优先用 crontab，或给启动脚本「完全磁盘访问权限」。
+
+---
+
+## 方案 C：云服务器 / NAS
+
+任意常开 Linux：
+
+```bash
 TZ=Asia/Shanghai
 0 8 * * * cd /path/to/AI_Daily_Brief && ./venv/bin/python -m ai_news_bot.main --log-file logs/brief.log
 ```
 
-在服务器上配置 `.env` 或系统环境变量即可，**不依赖你的 Mac**。
+---
+
+## GitHub Secrets（云端跑任务必备）
+
+仓库 → **Settings** → **Secrets and variables** → **Actions**：
+
+| Secret | 内容 |
+|--------|------|
+| `OPENAI_API_KEY` | DeepSeek / OpenAI Key |
+| `FEISHU_WEBHOOK_URL` | 飞书机器人 Webhook URL |
+
+---
+
+## 推荐组合（按你的使用习惯）
+
+| 你的情况 | 推荐 |
+|----------|------|
+| Mac 经常关着，要 8 点准时 | **cron-job.org + GitHub Actions**（方案 A） |
+| Mac 每天 8 点前已开机 | 本机 crontab（方案 B）+ 可选方案 A 双保险 |
+| 有常开 NAS/云主机 | 方案 C 最稳 |
+
+**防重复**：workflow 内有「今天已发过则跳过」，8:00 和 8:15 各触发一次也只会收到 **一条** 飞书。
 
 ---
 
 ## 对比
 
-| 方式 | 需 Mac 8 点开机 | 需登录 | 休眠后补发 |
-|------|-----------------|--------|------------|
-| 本机 cron / LaunchAgent | 是 | 通常需要 | 仅「登录补跑」脚本 |
-| **GitHub Actions** | **否** | **否** | 不适用（云端准时跑） |
-| 云服务器 cron | 否 | 否 | 否 |
+| 方式 | Mac 要开机 | 8 点准时 | 含周末 |
+|------|------------|----------|--------|
+| GitHub 内置 schedule | 否 | ❌ | ✅ |
+| **cron-job.org 触发** | **否** | **✅** | **✅** |
+| 本机 crontab | 是 | ✅ | ✅ |
+| 云服务器 cron | 否 | ✅ | ✅ |
