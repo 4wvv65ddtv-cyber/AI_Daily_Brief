@@ -43,7 +43,8 @@ git push -u origin main
 
 仓库已包含 [`.github/workflows/daily-brief.yml`](../.github/workflows/daily-brief.yml)：
 
-- **北京时间 每天 08:00** 自动运行（含周六日）；8:15 / 8:30 / 9:00 备用，**一天只推一条**
+- **北京时间 每天 08:00–09:00** 自动运行（含周六日，`timezone: Asia/Shanghai`），**一天只推一条**
+- **注意**：GitHub 内置 `schedule` 可能延迟数小时，不能指望 8 点准时。本机 `install_crontab.sh` 或外部定时调 `trigger_github_workflow.sh` 更可靠
 - 也可在 GitHub **Actions** 页点击 **Run workflow** 手动试跑
 
 ### 4. 停用本机定时（避免重复推送）

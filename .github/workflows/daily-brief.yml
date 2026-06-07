@@ -1,13 +1,23 @@
 # 云端定时推送：无需 Mac 开机/登录
-# 北京时间 每天 08:00 = UTC 00:00（含周末）；多次尝试 + 防重复，一天只推一条
+# 使用 Asia/Shanghai 时区；8:00–9:00 多次尝试，一天只推一条
 name: AI Daily Brief
 
 on:
   schedule:
-    - cron: "0 0 * * *"    # 08:00 北京时间
-    - cron: "15 0 * * *"   # 08:15 备用
-    - cron: "30 0 * * *"   # 08:30 备用
-    - cron: "0 1 * * *"    # 09:00 备用
+    - cron: "0 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "10 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "20 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "30 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "40 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "50 8 * * *"
+      timezone: Asia/Shanghai
+    - cron: "0 9 * * *"
+      timezone: Asia/Shanghai
   workflow_dispatch:
   repository_dispatch:
     types: [daily-brief]
@@ -35,6 +45,11 @@ jobs:
       MAX_TOTAL_ITEMS: "60"
 
     steps:
+      - name: Log trigger time (Beijing)
+        run: |
+          echo "Triggered at: $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "Event: ${{ github.event_name }} schedule=${{ github.event.schedule }}"
+
       - name: Beijing date
         id: bjdate
         run: echo "day=$(TZ=Asia/Shanghai date +%Y%m%d)" >> "$GITHUB_OUTPUT"
