@@ -5,6 +5,12 @@ name: AI Daily Brief
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: "今天已发过也强制再发一次（修密钥后验证用）"
+        required: false
+        default: false
+        type: boolean
   repository_dispatch:
     types: [daily-brief]
   schedule:
@@ -53,52 +59,87 @@ jobs:
           key: brief-sent-${{ steps.bjdate.outputs.day }}
 
       - name: Already sent today
-        if: steps.sent-cache.outputs.cache-hit == 'true'
+        if: steps.sent-cache.outputs.cache-hit == 'true' && inputs.force != true
         run: echo "Brief already sent today (${{ steps.bjdate.outputs.day }}), skipping."
 
       - name: Checkout
-        if: steps.sent-cache.outputs.cache-hit != 'true'
+        if: steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true
         uses: actions/checkout@v4
 
       - name: Setup Python
-        if: steps.sent-cache.outputs.cache-hit != 'true'
+        if: steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
       - name: Install dependencies
-        if: steps.sent-cache.outputs.cache-hit != 'true'
+        if: steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true
         run: |
           pip install -r requirements.txt
           pip install -e .
 
       - name: Preflight (normalize secrets)
-        if: steps.sent-cache.outputs.cache-hit != 'true'
+        if: steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
         run: |
           set -e
           trim() { echo -n "$1" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//;s/^"//;s/"$//;s/^'\''//;s/'\''$//'; }
           KEY="$(trim "$OPENAI_API_KEY")"
+          if [ -z "$KEY" ]; then
+            KEY="$(trim "$DEEPSEEK_API_KEY")"
+          fi
           WH="$(trim "$FEISHU_WEBHOOK_URL")"
           WH="${WH#FEISHU_WEBHOOK_URL=}"
           WH="$(trim "$WH")"
           echo "OPENAI_API_KEY set: $(test -n "$KEY" && echo yes || echo NO)"
           echo "FEISHU_WEBHOOK_URL set: $(test -n "$WH" && echo yes || echo NO)"
+          test -n "$KEY" || (echo "::error::Missing OPENAI_API_KEY (or DEEPSEEK_API_KEY) — 未配置会导致飞书只收到「试运行」模板内容。请到 Settings → Secrets 添加与本机 .env 相同的 DeepSeek sk- key" && exit 1)
           test -n "$WH" || (echo "::error::Missing FEISHU_WEBHOOK_URL secret" && exit 1)
           case "$WH" in
             https://open.feishu.cn/*|https://open.larksuite.com/*) ;;
             *) echo "::error::FEISHU_WEBHOOK_URL must be a Feishu bot https URL" && exit 1 ;;
           esac
+          echo "::add-mask::$KEY"
           echo "::add-mask::$WH"
           echo "OPENAI_API_KEY=$KEY" >> "$GITHUB_ENV"
           echo "FEISHU_WEBHOOK_URL=$WH" >> "$GITHUB_ENV"
-          test -n "$KEY" || echo "::warning::OPENAI_API_KEY empty — will use RSS dry-run fallback"
+
+      - name: Verify LLM API (DeepSeek)
+        if: steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json, os, urllib.error, urllib.request
+          key = os.environ["OPENAI_API_KEY"]
+          base = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com").rstrip("/")
+          model = os.environ.get("OPENAI_MODEL", "deepseek-chat")
+          url = f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
+          body = json.dumps({
+              "model": model,
+              "messages": [{"role": "user", "content": "reply ok"}],
+              "max_tokens": 5,
+          }).encode()
+          req = urllib.request.Request(
+              url,
+              data=body,
+              headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=30) as resp:
+                  data = json.loads(resp.read().decode())
+              print(f"LLM ping OK: model={data.get('model', model)}")
+          except urllib.error.HTTPError as e:
+              err = e.read().decode(errors="replace")[:500]
+              raise SystemExit(f"::error::LLM API failed HTTP {e.code}: {err}")
+          PY
 
       - name: Run daily brief and push to Feishu
-        if: steps.sent-cache.outputs.cache-hit != 'true'
+        if: steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true
         run: |
           python -u -m ai_news_bot.main --log-file logs/brief.log || EC=$?
           echo ""
@@ -110,7 +151,7 @@ jobs:
           exit ${EC:-0}
 
       - name: Mark sent today
-        if: success() && steps.sent-cache.outputs.cache-hit != 'true'
+        if: success() && (steps.sent-cache.outputs.cache-hit != 'true' || inputs.force == true)
         run: mkdir -p ".cache/sent-${{ steps.bjdate.outputs.day }}" && touch ".cache/sent-${{ steps.bjdate.outputs.day }}/ok"
 
       - name: Upload logs on failure

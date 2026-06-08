@@ -158,11 +158,20 @@ def main() -> int:
         return 0
 
     # Phase 3: Summarize
+    ci_mode = os.getenv("GITHUB_ACTIONS", "").lower() == "true"
     try:
         brief = summarize_news(grouped, dry_run=args.dry_run)
     except Exception as e:
         if args.dry_run:
             raise
+        if ci_mode:
+            logger.error("LLM failed in CI (%s) — refusing dry-run fallback", e)
+            print(
+                f"[main] FATAL: LLM summarization failed in GitHub Actions: {e}\n"
+                "[main] 请检查仓库 Secrets 中 OPENAI_API_KEY 是否为本机 .env 里有效的 DeepSeek sk- key"
+            )
+            print("[main] EXIT 3: LLM unavailable in CI")
+            return 3
         logger.warning("OpenAI failed (%s), falling back to dry-run summary", e)
         brief = summarize_news(grouped, dry_run=True)
         brief.overview = f"【注意】AI 总结暂不可用（{e}），以下为 RSS 预览。\n\n" + brief.overview

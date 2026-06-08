@@ -93,8 +93,11 @@ TZ=Asia/Shanghai
 
 | Secret | 内容 |
 |--------|------|
-| `OPENAI_API_KEY` | DeepSeek / OpenAI Key |
+| `OPENAI_API_KEY` | **必填**。与本机 `.env` 相同的 DeepSeek `sk-...` key（未配置会推「试运行」假内容） |
+| `DEEPSEEK_API_KEY` | 可选别名，与 `OPENAI_API_KEY` 二选一 |
 | `FEISHU_WEBHOOK_URL` | 飞书机器人 Webhook URL |
+
+更新 Secret：仓库 → **Settings** → **Secrets and variables** → **Actions** → 编辑 `OPENAI_API_KEY`，粘贴本机 `.env` 里的 `sk-` 密钥后保存，再手动 **Run workflow** 验证。
 
 ---
 
